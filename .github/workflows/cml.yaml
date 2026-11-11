@@ -1,1 +1,57 @@
-test
+name: CML experiment report
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  reproduce:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history so `dvc ... diff main` can read main's files
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: iterative/setup-cml@v2
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Get data (DVC remote, or regenerate the identical file)
+        run: |
+          dvc pull data/iris.csv || python src/get_data.py
+          dvc status data/iris.csv.dvc
+
+      - name: Reproduce the pipeline
+        run: dvc repro
+
+      - name: Build and post CML report
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git fetch origin main:main || true
+
+          echo "## Iris experiment report" > report.md
+          echo "" >> report.md
+          echo "### Metrics (this PR)" >> report.md
+          dvc metrics show --md >> report.md
+
+          echo "### Metrics diff vs main" >> report.md
+          dvc metrics diff main --md >> report.md
+
+          echo "### Params diff vs main" >> report.md
+          dvc params diff main --md >> report.md
+
+          echo "### Confusion matrix" >> report.md
+          echo '![](./plots/confusion_matrix.png)' >> report.md
+
+          cml comment create report.md
