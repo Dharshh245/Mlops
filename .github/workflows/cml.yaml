@@ -34,6 +34,12 @@ jobs:
       - name: Reproduce the pipeline
         run: dvc repro
 
+      - name: Upload plots as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plots
+          path: plots/
+
       - name: Build and post CML report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -52,6 +58,9 @@ jobs:
           dvc params diff main --md >> report.md
 
           echo "### Confusion matrix" >> report.md
-          echo '![](./plots/confusion_matrix.png)' >> report.md
+          echo "Image saved as the **plots** artifact of [this run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})." >> report.md
+          echo '```' >> report.md
+          python src/print_confusion.py >> report.md
+          echo '```' >> report.md
 
-          cml comment create report.md
+          cml comment create --publish=false report.md

@@ -4,5 +4,5 @@ prepare:
 
 train:
   n_estimators: 100
-  max_depth: 3
+  max_depth: 1
   random_state: 42
